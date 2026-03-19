@@ -1,0 +1,133 @@
+# SMB HubSpot Nurture — The Pedowitz Group
+
+A Node.js/Express service deployed on Render that generates personalized 10-email outbound nurture sequences for SMB HubSpot prospects. Contacts are enqueued from a HubSpot workflow, emails are written by the Claude API (as Jeff Pedowitz), and results are written back to HubSpot contact properties.
+
+---
+
+## Audience
+
+- **Company size:** 10–500 employees
+- **Platform:** Already using HubSpot
+- **Titles:** VP/Director of Marketing, Demand Gen, RevOps, Marketing Ops, Sales
+- **Signal:** Recent hiring in Marketing/Sales/RevOps roles
+- **Pitch:** "You're investing in HubSpot. TPG makes sure that investment pays off."
+
+---
+
+## How It Works
+
+1. A contact enters the HubSpot workflow and hits a **Custom Code step**
+2. The custom code step POSTs the contact's data to the Render service `/enqueue` endpoint
+3. The service adds the contact to an in-memory queue
+4. Up to **10 concurrent workers** pick up jobs, scrape the prospect's website for personalization, call the **Claude API** to generate a personalized email, and write the subject line, HTML body, and plain text back to HubSpot contact properties
+5. The `ai_email_step_status` property is updated throughout (`IN_PROGRESS` → `SENT` or `FAILED`)
+6. The HubSpot workflow uses `ai_email_step_status = SENT` as the trigger to send the email and advance to the next step
+
+---
+
+## Files
+
+| File | Purpose |
+|------|---------|
+| `server.js` | Main Render worker service |
+| `package.json` | Node.js dependencies |
+| `hubspot_custom_code.js` | Paste into HubSpot workflow Custom Code step |
+
+---
+
+## Render Deployment
+
+### Environment Variables
+Set these in Render → your service → Environment:
+
+| Variable | Value |
+|----------|-------|
+| `HUBSPOT_TOKEN` | Your HubSpot private app token |
+| `ANTHROPIC_API_KEY` | Your Anthropic API key |
+
+### Settings
+- **Runtime:** Node
+- **Build command:** `npm install`
+- **Start command:** `node server.js`
+- **Plan:** $7 Individual (or higher if running multiple nurtures simultaneously)
+
+---
+
+## Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Health check — returns queue length and in-flight count |
+| `/dashboard` | GET | Live queue monitor (auto-refreshes every 5 seconds) |
+| `/enqueue` | POST | Accepts a contact payload from HubSpot and adds to queue |
+
+---
+
+## HubSpot Setup
+
+### Custom Properties Required (create before launching)
+All properties are **contact** properties. Subject line and plain text = single-line text. Email body = multi-line text.
+
+| Property Internal Name | Type | Description |
+|------------------------|------|-------------|
+| `tpg_smb_hubspot_nurture_subject_line_em1–10` | Single-line text | Generated subject line per step |
+| `tpg_smb_hubspot_nurture_em1–10` | Multi-line text | Generated HTML email body per step |
+| `tpg_smb_hubspot_nurture_claude_text_em1–10` | Multi-line text | Plain text version (used for non-repetition) |
+| `ai_email_step_status` | Single-line text | Processing status — shared across nurtures |
+
+### Custom Code Step Setup
+1. Paste `hubspot_custom_code.js` into the Custom Code step
+2. Update `RENDER_URL` on line 3 with your actual Render service URL
+3. Add all of the following as **Input fields** (Properties to include in code):
+
+**Contact fields:**
+`firstname`, `company`, `jobtitle`, `industry`, `website`, `hs_linkedin_url`, `numemployees`, `annualrevenue`, `description`, `web_technologies`, `hs_intent_signals_enabled`, `hs_analytics_num_page_views`, `hs_analytics_last_url`
+
+**Prior email plain text (add all 10 even on step 1 — empty fields are handled gracefully):**
+`tpg_smb_hubspot_nurture_claude_text_em1` through `tpg_smb_hubspot_nurture_claude_text_em10`
+
+4. Add **Output fields:** `enqueue_status`, `queue_position`
+5. Set `sequence_step` as a fixed input value per workflow branch (1 through 10)
+
+### Workflow Structure
+- **Enrollment trigger:** Contact meets SMB criteria (10–500 employees, using HubSpot, VP/Director title)
+- **10 branches** — one per email step, each setting `sequence_step` = 1 through 10
+- Each branch: Custom Code step → wait for `ai_email_step_status = SENT` → send email using the corresponding `tpg_smb_hubspot_nurture_em{N}` property → delay → next step
+
+---
+
+## Performance
+
+| Setting | Value |
+|---------|-------|
+| Concurrency | 10 simultaneous jobs |
+| Anthropic tier | 50 RPM |
+| Effective throughput | ~50 contacts/min |
+| 7,000 contacts | ~2.5 hours |
+| Domain scrape cache | 1-hour TTL (one scrape per domain) |
+| Queue check interval | Every 500ms |
+
+**Note:** If running this alongside other nurtures sharing the same Anthropic API key, the 50 RPM limit is shared across all services. Stagger start times by 3–4 hours to avoid simultaneous load.
+
+---
+
+## Email Sequence — Service Angles
+
+| Step | Service | Angle |
+|------|---------|-------|
+| 1 | HubSpot CRM Optimization | Pipeline visibility & CRM adoption |
+| 2 | HubSpot Demand Generation | Pipeline generation & lead conversion |
+| 3 | HubSpot Marketing Automation & Workflows | Workflow automation & efficiency |
+| 4 | HubSpot Sales Enablement | Sales productivity & deal velocity |
+| 5 | HubSpot SEO & Organic Growth | Organic growth & content strategy |
+| 6 | HubSpot Platform Migration (Move It) | Platform consolidation |
+| 7 | HubSpot Loop Marketing Framework | Modern marketing strategy |
+| 8 | HubSpot Commerce Hub & Quote-to-Payment | Revenue ops & billing automation |
+| 9 | HubSpot Managed Services | Ongoing HubSpot management |
+| 10 | HubSpot Email Deliverability & Engagement | Email performance & list health |
+
+---
+
+## Written As
+**Jeff Pedowitz** — Founder and CEO, The Pedowitz Group
+Calendar link: `https://meetings.hubspot.com/jeff-pedowitz`
