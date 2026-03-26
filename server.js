@@ -417,6 +417,16 @@ function removeDashes(text) {
 }
 
 // =============================
+// SIGNATURE REMOVER — POST-PROCESS SAFETY NET
+// =============================
+function removeSignature(text) {
+  return text
+    .replace(/\n+\s*(Jeff|Scott)\s*$/i, '')
+    .replace(/\n+\s*(Best|Best regards|Thanks|Thank you|Regards|Sincerely|Cheers|Warm regards)[^\n]*/gi, '')
+    .trim();
+}
+
+// =============================
 // CLAUDE LOGIC
 // =============================
 async function runClaude(job) {
@@ -723,7 +733,7 @@ Each email in the sequence must introduce a fresh HubSpot angle, never repeating
     throw new Error("Missing subject after retries");
   }
 
-  return { subject: removeDashes(subject), bodyText: removeDashes(bodyText) };
+  return { subject: removeDashes(subject), bodyText: removeSignature(removeDashes(bodyText)) };
 }
 
 // =============================
