@@ -749,23 +749,28 @@ async function writeResults(contactId, { subject, bodyText }, sequenceStep = 1) 
     .map(p => `<p style="margin:0 0 16px;">${p.replace(/\n/g, "<br>")}</p>`)
     .join("\n");
 
-  await axios.patch(
-    `https://api.hubapi.com/crm/v3/objects/contacts/${contactId}`,
-    {
-      properties: {
-        [`tpg_smb_hubspot_nurture_subject_line_em${sequenceStep}`]: subject,
-        [`tpg_smb_hubspot_nurture_em${sequenceStep}`]: bodyHtml,
-        [`tpg_smb_hubspot_nurture_claude_text_em${sequenceStep}`]: bodyText
-      }
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${HUBSPOT_TOKEN}`,
-        "Content-Type": "application/json"
+  try {
+    await axios.patch(
+      `https://api.hubapi.com/crm/v3/objects/contacts/${contactId}`,
+      {
+        properties: {
+          [`tpg_smb_hubspot_nurture_subject_line_em${sequenceStep}`]: subject,
+          [`tpg_smb_hubspot_nurture_em${sequenceStep}`]: bodyHtml,
+          [`tpg_smb_hubspot_nurture_claude_text_em${sequenceStep}`]: bodyText
+        }
       },
-      timeout: 10000
-    }
-  );
+      {
+        headers: {
+          Authorization: `Bearer ${HUBSPOT_TOKEN}`,
+          "Content-Type": "application/json"
+        },
+        timeout: 10000
+      }
+    );
+  } catch (err) {
+    console.error(`❌ HubSpot 400 detail for ${contactId} (step ${sequenceStep}):`, JSON.stringify(err.response?.data));
+    throw err;
+  }
 }
 
 // =============================
